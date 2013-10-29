@@ -19,7 +19,7 @@ import sys
 import Queue
 import threading
 import subprocess
-import swift_func as gf
+import swift_func as sf
 
 from time import time, gmtime, strftime
 from datetime import datetime
@@ -112,7 +112,7 @@ class SimpleUploader(threading.Thread):
     '''
     threading.Thread.__init__(self)
     if use_auth:
-      self.tickettime, self.headers = gf.get_auth_token('user', 'pass')
+      self.tickettime, self.headers = sf.get_auth_token('user', 'pass')
       scheme = 'https'
     else:
       self.tickettime, self.headers = None, {}
@@ -124,7 +124,7 @@ class SimpleUploader(threading.Thread):
     self.idx = idx
     self.elfd = elfd
     self.pfd = pfd
-    self.putter = gf.Putter(scheme, host, port, version, volume, bucket, idx, elfd)
+    self.putter = sf.Putter(scheme, host, port, version, volume, bucket, idx, elfd)
     self.curr_upload = (0, '')
 
   def run(self):
@@ -183,7 +183,7 @@ class SimpleUploader(threading.Thread):
     to the swift-api. Returns True on success, False on failure.
     '''
     if self.tickettime is not None and (datetime.now() - self.tickettime).seconds > 600:
-      self.tickettime, self.headers = gf.get_auth_token('user', 'pass')
+      self.tickettime, self.headers = sf.get_auth_token('user', 'pass')
 
     resp = self.putter.put_file(self.headers, uri, None, size, self.chunk_size)
     if resp.status == 201:
@@ -207,7 +207,7 @@ class SimpleDownloader(threading.Thread):
     '''
     threading.Thread.__init__(self)
     if use_auth:
-      self.tickettime, self.headers = gf.get_auth_token('user', 'pass')
+      self.tickettime, self.headers = sf.get_auth_token('user', 'pass')
       scheme = 'https'
     else:
       self.tickettime, self.headers = None, {}
@@ -219,7 +219,7 @@ class SimpleDownloader(threading.Thread):
     self.idx = idx
     self.elfd = elfd
     self.pfd = pfd
-    self.getter = gf.Getter(scheme, host, port, version, volume, bucket, idx, elfd)
+    self.getter = sf.Getter(scheme, host, port, version, volume, bucket, idx, elfd)
     self.curr_download = (0, '')
 
   def run(self):
@@ -278,7 +278,7 @@ class SimpleDownloader(threading.Thread):
     to the swift-api. Returns True on success, False on failure.
     '''
     if self.tickettime is not None and (datetime.now() - self.tickettime).seconds > 600:
-      self.tickettime, self.headers = gf.get_auth_token('user', 'pass')
+      self.tickettime, self.headers = sf.get_auth_token('user', 'pass')
 
     resp = self.getter.get_file(self.headers, uri, None, size, self.chunk_size)
     if resp.status == 200:
