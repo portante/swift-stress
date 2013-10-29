@@ -156,7 +156,6 @@ class SimpleUploader(threading.Thread):
               total_time += tt
             else:
               error_files += 1
-              break
           finally:
             # Always be sure task_done is called to prevent main loop from stalling
             assert self.curr_upload != (0, ''), "unexpected value for curr_upload: curr_upload=%r size=%r uri=%r" % (self.curr_upload, size, uri)
@@ -478,7 +477,7 @@ class PerDirDownloader(SimpleDownloader):
 
 def threadPerDir(method, use_auth, hosts, port, version, volume, bucket,
                  uri_prefix, max_threads, chunk_size, size_multiplier,
-                 elfd, pfd, rfd, prfd, worklist_dir, q, out_q):
+                 elfd, pfd, rfd, worklist_dir, q, out_q):
   '''
   loop over file lists and create worker threads to upload files, where each
   thread is given its own directory on which to work. The list of directories
@@ -590,7 +589,7 @@ def stock_queue(lst_paths, worklist_dir, uri_prefix, q):
 
 def threadPerFile(method, use_auth, hosts, port, version, volume, bucket,
                   uri_prefix, max_threads, chunk_size, size_multiplier,
-                  elfd, pfd, rfd, prfd, worklist_dir, q, out_q):
+                  elfd, pfd, rfd, worklist_dir, q, out_q):
   '''
   Loop over file lists and create worker threads to upload files, where each
   thread just picks the next available file regardless of the directory in
@@ -604,11 +603,6 @@ def threadPerFile(method, use_auth, hosts, port, version, volume, bucket,
   while len(lst_paths) > 0:
     path_file, total_size, total_files = stock_queue(lst_paths, worklist_dir, uri_prefix, q)
     start_time = time()
-    if prfd:
-      prfd.write("%s\n" % ('=' * 80,))
-      subprocess.Popen("/usr/sbin/swift --remote-host=gprfs015-10ge volume" \
-                       " profile del0 info", shell=True, stdout=prfd, stderr=prfd)
-      prfd.flush()
     pfd.write("Stocked queue with %s\n" % path_file)
     pfd.flush()
 
@@ -676,7 +670,7 @@ def threadPerFile(method, use_auth, hosts, port, version, volume, bucket,
 def main(argv):
   '''
   Example command:
-    $ ./repono-swift-uploader.py \
+    $ ./repono-gluster-uploader.py \
       0 \                                         1/0 (True/False) - use thread-per-dir / thread-per-file upload method
       PUT                                         PUT | GET - http method to use
       0 \                                         1/0 (True/False) - https
@@ -687,8 +681,7 @@ def main(argv):
       load0 \                                     Name of first subdir below cnt
       30 \                                        Number of concurrent clients (threads)
       1 \                                         Size multiplier
-      65536 \                                     Default chunk size (ignored, optional)
-      0                                           1/0 (True/False) swift vol profile samples taken (optional)
+      65536                                       Default chunk size (ignored, optional)
   '''
   argc = len(argv)
   thread_per_dir = int(argv[0])
@@ -714,10 +707,6 @@ def main(argv):
     chunk_size = int(argv[10])
   else:
     chunk_size = 0
-  if argc >= 12:
-    profile = int(argv[11])
-  else:
-    profile = 0
 
   ftemplate = "%s/log/gl-%s-%s-%%s.log" % (os.path.dirname(__file__) or '.', uri_prefix, method)
   errorlog =     os.path.abspath(ftemplate % 'errors')
@@ -726,21 +715,16 @@ def main(argv):
   pfd = open(progresslog, 'a+')
   resultlog =    os.path.abspath(ftemplate % 'results')
   rfd = open(resultlog, 'a+')
-  if profile:
-    profilelog = os.path.abspath(ftemplate % 'profile')
-    prfd = open(profilelog, 'a+')
-  else:
-    prfd = None
   worklist_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "test-lists"))
   q = Queue.Queue()
   out_q = Queue.Queue()
 
   pfd.write("++++++++\nBegin Load (themethod=%r, method=%r, use_auth=%r," \
             " hosts=%r, port=%r, volume=%r, bucket=%r, uri_prefix=%r," \
-            " max_threads=%r, size_multiplier=%r, chunk_size=%r, profile=%r" \
+            " max_threads=%r, size_multiplier=%r, chunk_size=%r," \
             " worklist_dir=%r\n" % (themethod, method, use_auth, hosts, port,
             volume, bucket, uri_prefix, max_threads, size_multiplier,
-            chunk_size, profile, worklist_dir))
+            chunk_size, worklist_dir))
   pfd.flush()
 
   res = themethod(method, use_auth, hosts, port, version, volume, bucket, uri_prefix, max_threads, chunk_size, size_multiplier, elfd, pfd, rfd, prfd, worklist_dir, q, out_q)
